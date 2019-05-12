@@ -33,6 +33,7 @@ namespace Mochi
                 var len = Math.Min(this.buffer.Length - this.count, count);
 
                 Array.Copy(data, offset, this.buffer, this.count, len);
+                offset += len;
                 this.count += len;
                 count -= len;
             }
