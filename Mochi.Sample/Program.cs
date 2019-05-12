@@ -22,6 +22,16 @@ namespace Mochi.Sample
                 await ctx.Response.WriteAsync(Template, ctx.CancellationToken);
             });
 
+            mochi.Get("/echo", async ctx =>
+            {
+                ctx.Response.SetHeader("Content-Type", "text/plane");
+                await ctx.Response.WriteStatusCodeAsync(200, ctx.CancellationToken);
+                foreach (var pair in ctx.Reqeust.Headers)
+                {
+                    await ctx.Response.WriteAsync($"{pair.Key}: {pair.Value}\n", ctx.CancellationToken);
+                }
+            });
+
             await mochi.StartServeAsync(new IPEndPoint(IPAddress.Loopback, 8080), CancellationToken.None);
         }
     }

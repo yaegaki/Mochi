@@ -11,21 +11,16 @@ namespace Mochi
     public class HTTPServer
     {
         public event Action<Exception> OnClientException;
-        public Func<Context, Task> getHandler;
-        public Func<Context, Task> postHandler;
+        private Router router = new Router();
 
         public Task StartServeAsync(IPEndPoint endpoint, CancellationToken cancellationToken)
             => Task.Run(async () => await StartServeAsyncCore(endpoint, cancellationToken));
 
-        public void Get(string path, Func<Context, Task> handler)
-        {
-            getHandler = handler;
-        }
+        public void Get(string path, Func<Context, Task> handleFunc)
+            => this.router.Register(HTTPMethod.Get, path, handleFunc);
         
-        public void Post(string path, Func<Context, Task> handler)
-        {
-            postHandler = handler;
-        }
+        public void Post(string path, Func<Context, Task> handleFunc)
+            => this.router.Register(HTTPMethod.Post, path, handleFunc);
 
         private async Task StartServeAsyncCore(IPEndPoint endpoint, CancellationToken cancellationToken)
         {
@@ -116,22 +111,28 @@ namespace Mochi
                 cancellationToken
             );
 
-            Task handleTask;
+            HTTPMethod _method;
             switch (method)
             {
                 case "GET":
-                    handleTask = this.getHandler?.Invoke(context);
+                    _method = HTTPMethod.Get;
                     break;
                 case "POST":
-                    handleTask = this.postHandler?.Invoke(context);
+                    _method = HTTPMethod.Post;
                     break;
                 default:
                     throw new NotImplementedException($"NotImplementedMethod : '{method}'");
             }
 
-            if (handleTask != null)
+            var handleFunc = this.router.Find(_method, path);
+            if (handleFunc == null)
             {
-                await handleTask;
+                await context.Response.WriteStatusCodeAsync(404, cancellationToken);
+                await context.Response.WriteAsync("Not found.", cancellationToken);
+            }
+            else
+            {
+                await handleFunc(context);
             }
 
             await context.Response.FinishAsync(cancellationToken);
