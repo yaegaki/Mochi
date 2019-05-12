@@ -46,16 +46,16 @@ namespace Mochi
             await this.sw.WriteAsync(LineBrakeBytes, cancellationToken);
 
             string contentType;
-            if (!this.headers.TryGetValue("Content-Type", out contentType))
+            if (!this.headers.TryGetValue(KnwonHeaders.ContentType, out contentType))
             {
-                contentType = "text/html";
+                contentType = ContentTypes.TextHtml;
             }
 
             await this.sw.WriteAsync($"Content-Type: {contentType}\r\n", cancellationToken);
 
             foreach (var pair in this.headers)
             {
-                if (pair.Key == "Content-Type") continue;
+                if (pair.Key == KnwonHeaders.ContentType) continue;
 
                 await this.sw.WriteAsync($"{pair.Key}: {pair.Value}\r\n", cancellationToken);
             }

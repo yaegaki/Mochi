@@ -24,9 +24,30 @@ namespace Mochi.Sample
 
             mochi.Get("/echo", async ctx =>
             {
-                ctx.Response.SetHeader("Content-Type", "text/plane");
+                ctx.Response.SetContentType(ContentTypes.TextPlane);
                 await ctx.Response.WriteStatusCodeAsync(200, ctx.CancellationToken);
                 foreach (var pair in ctx.Reqeust.Headers)
+                {
+                    await ctx.Response.WriteAsync($"{pair.Key}: {pair.Value}\n", ctx.CancellationToken);
+                }
+            });
+
+            mochi.Get("/form", async ctx =>
+            {
+                await ctx.Response.WriteAsync(@"<body>
+    <form action=""/post"" method=""post"">
+        <div><input name=""text""></div>
+        <button>submit</button>
+    </form>
+</body>", ctx.CancellationToken);
+            });
+
+            mochi.Post("/post", async ctx =>
+            {
+                ctx.Response.SetContentType(ContentTypes.TextPlane);
+                await ctx.Response.WriteStatusCodeAsync(200, ctx.CancellationToken);
+                var b = ctx.Reqeust.ParseBody();
+                foreach (var pair in b)
                 {
                     await ctx.Response.WriteAsync($"{pair.Key}: {pair.Value}\n", ctx.CancellationToken);
                 }

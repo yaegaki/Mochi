@@ -81,8 +81,21 @@ namespace Mochi
                //  Console.WriteLine($"Header:{name}, {value}");
             }
 
+            HTTPMethod _method;
+            switch (method)
+            {
+                case "GET":
+                    _method = HTTPMethod.Get;
+                    break;
+                case "POST":
+                    _method = HTTPMethod.Post;
+                    break;
+                default:
+                    throw new NotImplementedException($"NotImplementedMethod : '{method}'");
+            }
+
             byte[] body = Array.Empty<byte>();
-            if (headers.TryGetValue("Content-Length", out string contentLengthStr))
+            if (_method == HTTPMethod.Post && headers.TryGetValue(KnwonHeaders.ContentLength, out string contentLengthStr))
             {
                 int contentLength;
                 if (!int.TryParse(contentLengthStr, out contentLength) || contentLength < 0)
@@ -110,19 +123,6 @@ namespace Mochi
                 new ResponseWriter(new NetworkStreamWriter(ns, writeBuffer)),
                 cancellationToken
             );
-
-            HTTPMethod _method;
-            switch (method)
-            {
-                case "GET":
-                    _method = HTTPMethod.Get;
-                    break;
-                case "POST":
-                    _method = HTTPMethod.Post;
-                    break;
-                default:
-                    throw new NotImplementedException($"NotImplementedMethod : '{method}'");
-            }
 
             var handleFunc = this.router.Find(_method, path);
             if (handleFunc == null)

@@ -13,4 +13,12 @@ namespace Mochi
         Task FlushAsync(CancellationToken cancellationToken);
         Task FinishAsync(CancellationToken cancellationToken);
     }
+
+    public static class IResponseWriterExtensions
+    {
+        public static void SetContentType(this IResponseWriter res, string contentType)
+        {
+            res.SetHeader(KnwonHeaders.ContentType, contentType);
+        }
+    }
 }
