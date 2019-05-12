@@ -16,6 +16,14 @@ namespace Mochi
             string contentType;
             if (!Headers.TryGetValue(KnwonHeaders.ContentType, out contentType)) return body;
 
+            var sc = contentType.IndexOf(';');
+            if (sc >= 0)
+            {
+                // only accept utf-8...
+                var _contentType = contentType.Substring(0, sc);
+                contentType = _contentType;
+            }
+
             if (contentType != ContentTypes.ApplicationXWWWFormURLEncoded) return body;
 
             if (Body.Length == 0) return body;
