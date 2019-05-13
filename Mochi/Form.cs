@@ -26,6 +26,16 @@ namespace Mochi
             }
         }
 
+        public IEnumerable<(string name, IReadOnlyList<Part> files)> EnumerateAllFiles()
+        {
+            if (this.valuesDict == null) yield break;
+
+            foreach (var pair in this.partsDict)
+            {
+                yield return (pair.Key, pair.Value);
+            }
+        }
+
         public string GetValue(string name)
         {
             var values = GetValues(name);
@@ -39,20 +49,21 @@ namespace Mochi
             return this.valuesDict.TryGetValue(name, out var values) ? (IReadOnlyList<string>)values : Array.Empty<string>();
         }
 
-        public Stream GetFile(string name)
+        public Part? GetFile(string name)
         {
             if (this.partsDict == null) return null;
 
-            return this.partsDict.TryGetValue(name, out var parts) ? parts[0].GetFile() : null;
+            if (this.partsDict.TryGetValue(name, out var parts)) return parts[0];
+            return null;
         }
 
-        public IReadOnlyList<Stream> GetFiles(string name)
+        public IReadOnlyList<Part> GetFiles(string name)
         {
-            if (this.partsDict == null) return Array.Empty<Stream>();
+            if (this.partsDict == null) return Array.Empty<Part>();
 
             return this.partsDict.TryGetValue(name, out var parts) ?
-                parts.Select(p => p.GetFile()).ToArray() :
-                Array.Empty<Stream>();
+                (IReadOnlyList<Part>)parts :
+                Array.Empty<Part>();
         }
     }
 }
