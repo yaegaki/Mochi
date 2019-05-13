@@ -37,6 +37,7 @@ namespace Mochi.Sample
                 await ctx.Response.WriteAsync(@"<body>
     <form action=""/post"" method=""post"">
         <div><input name=""text""></div>
+        <div><input name=""text""></div>
         <button>submit</button>
     </form>
 </body>", ctx.CancellationToken);
@@ -46,10 +47,9 @@ namespace Mochi.Sample
             {
                 ctx.Response.SetContentType(ContentTypes.TextPlane);
                 await ctx.Response.WriteStatusCodeAsync(200, ctx.CancellationToken);
-                var b = ctx.Reqeust.ParseBody();
-                foreach (var pair in b)
+                foreach (var (name, values) in ctx.Reqeust.Form.EnumerateAllValues())
                 {
-                    await ctx.Response.WriteAsync($"{pair.Key}: {pair.Value}\n", ctx.CancellationToken);
+                    await ctx.Response.WriteAsync($"{name}: {string.Join(',', values)}\n", ctx.CancellationToken);
                 }
             });
 
