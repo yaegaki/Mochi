@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Mochi
 {
-    public struct Request
+    public class Request
     {
         private bool isFormParsed;
         private Form form;
