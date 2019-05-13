@@ -103,7 +103,7 @@ namespace Mochi
                     throw new InvalidReceiveDataException($"Invalid Content-Length: {contentLengthStr}");
                 }
 
-                if (contentLength > 1024 * 1024)
+                if (contentLength > 2 * 1024 * 1024)
                 {
                     throw new InvalidReceiveDataException($"Too large Content-Length: {contentLengthStr}");
                 }
