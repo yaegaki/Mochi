@@ -25,6 +25,7 @@ namespace Mochi
         private async Task StartServeAsyncCore(IPEndPoint endpoint, CancellationToken cancellationToken)
         {
             using (var serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            using (cancellationToken.Register(() => serverSocket.Close()))
             {
                 serverSocket.Bind(endpoint);
                 serverSocket.Listen(10);
@@ -34,19 +35,64 @@ namespace Mochi
                     var clientSocket = await Task.Run(async () => await serverSocket.AcceptAsync(), cancellationToken);
                     _ = Task.Run(async () =>
                     {
-                        using (var ns = new NetworkStream(clientSocket, true))
+                        var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        var linkedCancellationToken = linkedTokenSource.Token;
+
+                        // check connection.
+                        _ = Task.Run(async () =>
                         {
-                            try
+                            while (true)
                             {
-                                await ServeAsync(ns, cancellationToken);
+                                await Task.Delay(5000, linkedCancellationToken);
+                                if (clientSocket.Connected)
+                                {
+                                    if (!clientSocket.Poll(1, SelectMode.SelectRead) || clientSocket.Available != 0)
+                                    {
+                                        continue;
+                                    }
+                                }
+
+                                var _linkedTokenSource = linkedTokenSource;
+                                if (_linkedTokenSource != null)
+                                {
+                                    if (Interlocked.CompareExchange(ref linkedTokenSource, null, _linkedTokenSource) == _linkedTokenSource)
+                                    {
+                                        _linkedTokenSource.Cancel();
+                                        _linkedTokenSource.Dispose();
+                                    }
+                                }
+                                break;
                             }
-                            catch (InvalidReceiveDataException)
+                        });
+
+                        try
+                        {
+                            using (var ns = new NetworkStream(clientSocket, true))
                             {
-                                // ignore
+                                try
+                                {
+                                    await ServeAsync(clientSocket, ns, linkedCancellationToken);
+                                }
+                                catch (InvalidReceiveDataException)
+                                {
+                                    // ignore
+                                }
+                                catch (BufferFullException)
+                                {
+                                    // ignore
+                                }
                             }
-                            catch (BufferFullException)
+                        }
+                        catch
+                        {
+                            var _linkedTokenSource = linkedTokenSource;
+                            if (_linkedTokenSource != null)
                             {
-                                // ignore
+                                if (Interlocked.CompareExchange(ref linkedTokenSource, null, _linkedTokenSource) == _linkedTokenSource)
+                                {
+                                    _linkedTokenSource.Cancel();
+                                    _linkedTokenSource.Dispose();
+                                }
                             }
                         }
                     })
@@ -55,7 +101,7 @@ namespace Mochi
             }
         }
 
-        private async Task ServeAsync(NetworkStream ns, CancellationToken cancellationToken)
+        private async Task ServeAsync(Socket socket, NetworkStream ns, CancellationToken cancellationToken)
         {
             var buffer = new byte[1024];
             var sr = new NetworkStreamReader(ns, buffer);
@@ -119,6 +165,7 @@ namespace Mochi
 
             var writeBuffer = new byte[1024];
             var context = new Context(
+                socket,
                 new Request(path, headers, body),
                 new ResponseWriter(new NetworkStreamWriter(ns, writeBuffer)),
                 cancellationToken
