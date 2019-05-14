@@ -83,11 +83,11 @@ namespace Mochi.Sample.Chat
                     while (true)
                     {
                         var text = await signaler.WaitSignaleAsync(ctx.CancellationToken);
-                        runner.Enqueue(Task.Run(async () =>
+                        runner.Enqueue(async () =>
                         {
                             await ctx.Response.WriteAsync($"data: {text}\r\n\r\n", ctx.CancellationToken);
                             await ctx.Response.FlushAsync(ctx.CancellationToken);
-                        }));
+                        });
                     }
                 });
 
