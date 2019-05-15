@@ -100,15 +100,14 @@ namespace Mochi.Async
     {
         public static Awaitable<ChannelSelectResult<T1, T2>> SelectAsync<T1, T2>(IReadOnlyChannel<T1> channel1, IReadOnlyChannel<T2> channel2, bool allowDefault, CancellationToken cancellationToken)
         {
-            var mux = new ReadOnlyChannelMux<T1, T2>(new object(), channel1, channel2);
+            var mux = new ReadOnlyChannelMux<T1, T2>(channel1, channel2);
             return SelectAsync(mux, allowDefault, cancellationToken);
         }
 
         public static Awaitable<ChannelSelectResult<T1, T2, T3>> SelectAsync<T1, T2, T3>(IReadOnlyChannel<T1> channel1, IReadOnlyChannel<T2> channel2, IReadOnlyChannel<T3> channel3, bool allowDefault, CancellationToken cancellationToken)
         {
-            var sync = new object();
-            var mux1 = new ReadOnlyChannelMux<T1, T2>(sync, channel1, channel2);
-            var mux2 = new ReadOnlyChannelMux<ChannelSelectResult<T1, T2>, T3>(sync, mux1, channel3);
+            var mux1 = new ReadOnlyChannelMux<T1, T2>(channel1, channel2);
+            var mux2 = new ReadOnlyChannelMux<ChannelSelectResult<T1, T2>, T3>(mux1, channel3);
             return SelectAsync(mux2, allowDefault, cancellationToken)
                 .Select(t =>
                 {
@@ -127,10 +126,9 @@ namespace Mochi.Async
 
         public static Awaitable<ChannelSelectResult<T1, T2, T3, T4>> SelectAsync<T1, T2, T3, T4>(IReadOnlyChannel<T1> channel1, IReadOnlyChannel<T2> channel2, IReadOnlyChannel<T3> channel3, IReadOnlyChannel<T4> channel4, bool allowDefault, CancellationToken cancellationToken)
         {
-            var sync = new object();
-            var mux1 = new ReadOnlyChannelMux<T1, T2>(sync, channel1, channel2);
-            var mux2 = new ReadOnlyChannelMux<ChannelSelectResult<T1, T2>, T3>(sync, mux1, channel3);
-            var mux3 = new ReadOnlyChannelMux<ChannelSelectResult<ChannelSelectResult<T1, T2>, T3>, T4>(sync, mux2, channel4);
+            var mux1 = new ReadOnlyChannelMux<T1, T2>(channel1, channel2);
+            var mux2 = new ReadOnlyChannelMux<ChannelSelectResult<T1, T2>, T3>(mux1, channel3);
+            var mux3 = new ReadOnlyChannelMux<ChannelSelectResult<ChannelSelectResult<T1, T2>, T3>, T4>(mux2, channel4);
             return SelectAsync(mux3, allowDefault, cancellationToken)
                 .Select(t =>
                 {
@@ -158,69 +156,63 @@ namespace Mochi.Async
                 return new Awaitable<ChannelSelectResult<T1, T2>>(p);
             }
 
-            lock (mux.Sync)
-            {
-                var promise = new Promise<ChannelSelectResult<T1, T2>>();
-                mux.OnReceive(t =>
-                {
-                    return !cancellationToken.IsCancellationRequested && promise.TrySetResult(t.value);
-                });
+            var invoked = 0;
+            Func<bool> cas = () => Interlocked.CompareExchange(ref invoked, 1, 0) == 0;
 
-                if (allowDefault && !promise.IsCompleted)
+            var promise = new Promise<ChannelSelectResult<T1, T2>>();
+            mux.OnReceive(t =>
+            {
+                return !cancellationToken.IsCancellationRequested && cas() && promise.TrySetResult(t.value);
+            });
+            
+
+            if (allowDefault && !promise.IsCompleted)
+            {
+                if (cas())
                 {
                     promise.TrySetResult(new ChannelSelectResult<T1, T2>(-1));
                 }
-                else
-                {
-                    if (cancellationToken.CanBeCanceled)
-                    {
-                        var d = cancellationToken.Register(() => promise.TrySetCanceled(cancellationToken));
-                        promise.AddContinuation(() => d.Dispose());
-                    }
-                }
-
-                return new Awaitable<ChannelSelectResult<T1, T2>>(promise);
             }
+            else
+            {
+                if (cancellationToken.CanBeCanceled)
+                {
+                    var d = cancellationToken.Register(() =>
+                    {
+                        if (cas())
+                        {
+                            promise.TrySetCanceled(cancellationToken);
+                        }
+                    });
+                    promise.AddContinuation(() => d.Dispose());
+                }
+            }
+
+            return new Awaitable<ChannelSelectResult<T1, T2>>(promise);
         }
     }
 
     public struct ReadOnlyChannelMux<T1, T2> : ILowLevelReadOnlyChannel<ChannelSelectResult<T1, T2>>
     {
-        public object Sync { get; }
         private ILowLevelReadOnlyChannel<T1> channel1;
         private ILowLevelReadOnlyChannel<T2> channel2;
 
-        public ReadOnlyChannelMux(object sync, ILowLevelReadOnlyChannel<T1> channel1, ILowLevelReadOnlyChannel<T2> channel2)
+        public ReadOnlyChannelMux(ILowLevelReadOnlyChannel<T1> channel1, ILowLevelReadOnlyChannel<T2> channel2)
         {
-            this.Sync = sync;
             this.channel1 = channel1;
             this.channel2 = channel2;
         }
 
         public void OnReceive(Func<(ChannelSelectResult<T1, T2> value, bool ok), bool> accept)
         {
-            var _sync = this.Sync;
-            var received = false;
             this.channel1.OnReceive(t =>
             {
-                lock (_sync)
-                {
-                    if (received) return false;
-                    received = true;
-
-                    return accept((new ChannelSelectResult<T1, T2>(new ChannelSelectResult<T1>(t.value, t.ok)), true));
-                }
+                return accept((new ChannelSelectResult<T1, T2>(new ChannelSelectResult<T1>(t.value, t.ok)), true));
             });
 
             this.channel2.OnReceive(t =>
             {
-                lock (_sync)
-                {
-                    if (received) return false;
-                    received = true;
-
-                    return accept((new ChannelSelectResult<T1, T2>(new ChannelSelectResult<T2>(t.value, t.ok)), true));
-                }
+                return accept((new ChannelSelectResult<T1, T2>(new ChannelSelectResult<T2>(t.value, t.ok)), true));
             });
         }
     }
