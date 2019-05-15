@@ -11,7 +11,9 @@ namespace Mochi.Sample.Chat
         static async Task Main(string[] args)
         {
             var mochi = new Mochi.HTTPServer();
-            var signaler = new Mochi.Async.Signaler<string>();
+            var postChannel = new Mochi.Async.Channel<string>();
+            var clientConnectChannel = new Mochi.Async.Channel<Mochi.Async.Channel<string>>();
+            var clientDisconnectChannel = new Mochi.Async.Channel<Mochi.Async.Channel<string>>();
 
             mochi.Get("/", async ctx =>
             {
@@ -67,7 +69,7 @@ namespace Mochi.Sample.Chat
 
             mochi.Post("/post", async ctx =>
             {
-                signaler.Signal(ctx.Reqeust.Form.GetValue("text"));
+                await postChannel.SendAsync(ctx.Reqeust.Form.GetValue("text"), ctx.CancellationToken);
                 await ctx.Response.WriteAsync("OK", ctx.CancellationToken);
             });
 
@@ -76,22 +78,51 @@ namespace Mochi.Sample.Chat
                 ctx.Response.SetHeader("Access-Control-Allow-Origin", "*");
                 ctx.Response.SetContentType("text/event-stream; charset=utf-8");
 
-                var runner = new Mochi.Async.SequentialTaskRunner();
-
-                var signalTask = Task.Run(async () =>
+                var receiveChannel = new Mochi.Async.Channel<string>(10);
+                try
                 {
+                    await clientConnectChannel.SendAsync(receiveChannel, ctx.CancellationToken);
+
+
                     while (true)
                     {
-                        var text = await signaler.WaitSignaleAsync(ctx.CancellationToken);
-                        runner.Enqueue(async () =>
-                        {
-                            await ctx.Response.WriteAsync($"data: {text}\r\n\r\n", ctx.CancellationToken);
-                            await ctx.Response.FlushAsync(ctx.CancellationToken);
-                        });
+                        var (text, _) = await receiveChannel.ReceiveAsync(ctx.CancellationToken);
+                        await ctx.Response.WriteAsync($"data: {text}\r\n\r\n", ctx.CancellationToken);
+                        await ctx.Response.FlushAsync(ctx.CancellationToken);
                     }
-                });
+                }
+                finally
+                {
+                    await clientDisconnectChannel.SendAsync(receiveChannel, CancellationToken.None);
+                    receiveChannel.Dispose();
+                }
+            });
 
-                await Task.WhenAny(signalTask, runner.Run());
+
+            _ = Task.Run(async () =>
+            {
+                var clients = new List<Mochi.Async.Channel<string>>();
+                while (true)
+                {
+                    var result = await Mochi.Async.Channel.SelectAsync(postChannel, clientConnectChannel, clientDisconnectChannel, false, CancellationToken.None);
+                    switch (result.Index)
+                    {
+                        case 0:
+                            Console.WriteLine("Posted.");  
+                            foreach (var client in clients) await client.SendAsync(result.Item1.Result, CancellationToken.None);
+                            break;
+                        case 1:
+                            Console.WriteLine("Connected.");  
+                            clients.Add(result.Item2.Result);
+                            break;
+                        case 2:
+                            Console.WriteLine("Disconnected.");  
+                            clients.Remove(result.Item3.Result);
+                            break;
+                        default:
+                            throw new Exception("unknown bug.");
+                    }
+                }
             });
 
             await mochi.StartServeAsync(new IPEndPoint(IPAddress.Loopback, 8080), CancellationToken.None);
