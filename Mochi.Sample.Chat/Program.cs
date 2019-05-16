@@ -15,72 +15,46 @@ namespace Mochi.Sample.Chat
             var clientConnectChannel = new Mochi.Async.Channel<Mochi.Async.Channel<string>>();
             var clientDisconnectChannel = new Mochi.Async.Channel<Mochi.Async.Channel<string>>();
 
-            mochi.Get("/", async ctx =>
+            Func<Mochi.Context, Task> RenderFileHandler(string path)
             {
-                await ctx.Response.WriteAsync(@"<html>
-    <head>
-        <meta charset=""utf-8"">
-        <title>Mochi Chat</title>
-        <style>
-            #chat {
-                overflow-y: auto;
-                height: 300px;
-                border: 1px solid gray;
+                return async ctx =>
+                {
+                    var ext = System.IO.Path.GetExtension(path).ToLower();
+                    switch (ext)
+                    {
+                        case ".htm":
+                        case ".html":
+                            ctx.Response.SetContentType(ContentTypes.TextHtml);
+                            break;
+                        case ".js":
+                            ctx.Response.SetContentType(ContentTypes.ApplicationJavaScript);
+                            break;
+                        default:
+                            break;
+                    }
+
+                    // every time read file from disk(for debug.)
+                    var data = await System.IO.File.ReadAllBytesAsync(path, ctx.CancellationToken);
+                    await ctx.Response.WriteAsync(data, ctx.CancellationToken);
+                };
             }
 
-            .error {
-                color: red;
-            }
-
-            .flush {
-                color: yellow;
-            }
-        </style>
-    </head>
-    <body>
-        <div>Mochi Chat Server</div>
-        <div id=""chat""></div>
-        <form id=""form"" action=""/post"" method=""post"" enctype=""multipart/form-data"">
-            <input id=""text"" name=""text"">
-            <button>submit</button>
-        </form>
-        <script>
-            form.addEventListener('submit', e => {
-                e.preventDefault();
-
-                if (text.value.length === 0) return;
-
-                const form = new FormData();
-                form.append('text', text.value);
-
-                fetch('/post', { method: 'POST', body: form });
-                text.value = '';
-            });
-
-            const es = new EventSource('/sse');
-            const texts = [];
-            es.addEventListener('message', e => {
-                var m = e.data.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/""/g, '&quot;').replace(/'/g, '&#39;');
-                texts.unshift(`<div>${m}</div>`);
-                requestAnimationFrame(() => {
-                    if (chat.innerHTML.length > 5000) chat.innerHTML = '<div class=""flush"">Flush...</div>';
-
-                    chat.innerHTML = `<div>${texts.join('')}</div>${chat.innerHTML}`;
-                    texts.length = 0;
-                })
-            });
-
-            es.addEventListener('error', e => {
-                chat.innerHTML = `<div class=""error"">Error occurred!</div>${chat.innerHTML}`;
-            });
-        </script>
-    </body>
-</html>", ctx.CancellationToken);
-            });
+            // render static files.
+            mochi.Get("/", RenderFileHandler("./public/index.html"));
+            mochi.Get("/main.js", RenderFileHandler("./public/main.js"));
 
             mochi.Post("/post", async ctx =>
             {
-                await postChannel.SendAsync(ctx.Reqeust.Form.GetValue("text"), ctx.CancellationToken);
+                var name = ctx.Reqeust.Form.GetValue("name");
+                var text = ctx.Reqeust.Form.GetValue("text");
+                if (string.IsNullOrEmpty(name) || name.Contains(',') || name.Contains(':')) {
+                    await ctx.Response.WriteStatusCodeAsync(400, ctx.CancellationToken);
+                    await ctx.Response.WriteAsync("Bad Request", ctx.CancellationToken);
+                    return;
+                }
+
+
+                await postChannel.SendAsync($"{name},{text}", ctx.CancellationToken);
                 await ctx.Response.WriteAsync("OK", ctx.CancellationToken);
             });
 

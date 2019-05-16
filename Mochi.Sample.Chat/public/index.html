@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Mochi Chat</title>
+    <style>
+        #chat {
+            overflow-y: auto;
+            height: 300px;
+            border: 1px solid gray;
+        }
+    
+        .error {
+            color: red;
+        }
+    
+        .flush {
+            color: yellow;
+        }
+
+        .name {
+            color: gray;
+        }
+
+        .name, .text {
+            margin: 2px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mochi Chat Server</h1>
+    <div id="chat"></div>
+    <form id="form" action="/post" method="post" enctype="multipart/form-data">
+        <div>
+            name:<input id="name" name="name"> post: <input id="text" name="text"><button>submit</button>
+        </div>
+    </form>
+    <script src="/main.js"></script>
+</body>
+</html>
