@@ -31,6 +31,10 @@ namespace Mochi.Sample.Chat
             .error {
                 color: red;
             }
+
+            .flush {
+                color: yellow;
+            }
         </style>
     </head>
     <body>
@@ -54,9 +58,16 @@ namespace Mochi.Sample.Chat
             });
 
             const es = new EventSource('/sse');
+            const texts = [];
             es.addEventListener('message', e => {
                 var m = e.data.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/""/g, '&quot;').replace(/'/g, '&#39;');
-                chat.innerHTML = `<div>${m}</div>${chat.innerHTML}`;
+                texts.unshift(`<div>${m}</div>`);
+                requestAnimationFrame(() => {
+                    if (chat.innerHTML.length > 5000) chat.innerHTML = '<div class=""flush"">Flush...</div>';
+
+                    chat.innerHTML = `<div>${texts.join('')}</div>${chat.innerHTML}`;
+                    texts.length = 0;
+                })
             });
 
             es.addEventListener('error', e => {
