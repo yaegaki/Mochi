@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mochi.Sample.Chat", "Mochi.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mochi.Async", "Mochi.Async\Mochi.Async.csproj", "{B6CEF765-1497-4D38-9191-177CEF93E0B9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mochi.Sample.Async", "Mochi.Sample.Async\Mochi.Sample.Async.csproj", "{A2C08375-1F5C-4F91-BA26-969246A6C34A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -72,5 +74,17 @@ Global
 		{B6CEF765-1497-4D38-9191-177CEF93E0B9}.Release|x64.Build.0 = Release|Any CPU
 		{B6CEF765-1497-4D38-9191-177CEF93E0B9}.Release|x86.ActiveCfg = Release|Any CPU
 		{B6CEF765-1497-4D38-9191-177CEF93E0B9}.Release|x86.Build.0 = Release|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Debug|x64.Build.0 = Debug|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Debug|x86.Build.0 = Debug|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Release|x64.ActiveCfg = Release|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Release|x64.Build.0 = Release|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Release|x86.ActiveCfg = Release|Any CPU
+		{A2C08375-1F5C-4F91-BA26-969246A6C34A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
