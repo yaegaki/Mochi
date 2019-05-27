@@ -4,6 +4,35 @@ using System.Threading;
 
 namespace Mochi.Async
 {
+    public class Promise : IAwaitable<Promise>, IAwaiter
+    {
+        private Promise<MochiUnit> promise = new Promise<MochiUnit>();
+
+        public bool IsCompleted
+            => promise.IsCompleted;
+
+        public bool TrySetResult()
+            => this.promise.TrySetResult(default(MochiUnit));
+
+        public bool TrySetCanceled(CancellationToken cancellationToken)
+            => this.promise.TrySetCanceled(cancellationToken);
+
+        public bool TrySetException(Exception exception)
+            => this.promise.TrySetException(exception);
+
+        public Promise GetAwaiter()
+            => this;
+
+        public void GetResult()
+            => this.promise.GetResult();
+
+        public void OnCompleted(Action continuation)
+            => ((IAwaiter)this.promise).OnCompleted(continuation);
+
+        public void UnsafeOnCompleted(Action continuation)
+            => ((IAwaiter)this.promise).UnsafeOnCompleted(continuation);
+    }
+
     public class Promise<T> : IAwaitable<Promise<T>>, IAwaiter<T>, IAwaiter
     {
         private int status;
@@ -15,6 +44,32 @@ namespace Mochi.Async
         public bool IsSucceeded => status == 1 || status == 4;
         public bool IsCanceled => status == 2 || status == 5;
         public bool IsFaulted => status == 3 || status == 6;
+
+        public bool UnsafeTrySetResult(Awaiter<T> awaiter)
+        {
+            var d = Awaiter.UnsafeGet<Awaiter<T>, T>(awaiter);
+            if (d.cancellation.isCanceled)
+            {
+                return TrySetCanceled(d.cancellation.token);
+            }
+            else if (d.exception != null)
+            {
+                return TrySetException(d.exception);
+            }
+
+            return TrySetResult(d.result);
+        }
+
+        public void TrySetResult(Awaiter<T> awaiter)
+        {
+            if (awaiter.IsCompleted)
+            {
+                UnsafeTrySetResult(awaiter);
+                return;
+            }
+
+            awaiter.UnsafeOnCompleted(() => UnsafeTrySetResult(awaiter));
+        }
 
         public bool TrySetResult(T result)
         {
@@ -57,15 +112,19 @@ namespace Mochi.Async
 
         private void InvokeContinuation()
         {
-            var _continuation = this.continuation;
-            if (_continuation == null)
+            object _continuation;
+            while (true)
             {
-                return;
-            }
+                _continuation = Volatile.Read(ref this.continuation);
+                if (_continuation == null)
+                {
+                    return;
+                }
 
-            if (Interlocked.CompareExchange(ref this.continuation, null, _continuation) != _continuation)
-            {
-                return;
+                if (Interlocked.CompareExchange(ref this.continuation, null, _continuation) == _continuation)
+                {
+                    break;
+                }
             }
 
             switch (_continuation)

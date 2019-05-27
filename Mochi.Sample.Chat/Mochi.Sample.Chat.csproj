@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mochi\Mochi.csproj" />
+    <ProjectReference Include="..\Mochi.Async\Mochi.Async.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

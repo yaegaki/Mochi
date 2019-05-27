@@ -6,14 +6,25 @@ using System.Threading.Tasks;
 
 namespace Mochi.Sample.Chat
 {
+    class Client
+    {
+        public Queue<string> Queue { get; }
+        public Mochi.Async.Signaler Signaler { get; }
+
+        public Client(Queue<string> queue, Mochi.Async.Signaler signaler)
+            => (this.Queue, this.Signaler) = (queue, signaler);
+    }
+
     class Program
     {
         static async Task Main(string[] args)
         {
             var mochi = new Mochi.HTTPServer();
-            var postChannel = new Mochi.Async.Channel<string>();
-            var clientConnectChannel = new Mochi.Async.Channel<Mochi.Async.Channel<string>>();
-            var clientDisconnectChannel = new Mochi.Async.Channel<Mochi.Async.Channel<string>>();
+
+            var signaler = new Mochi.Async.Signaler();
+            var fiber = new Mochi.Async.Fiber();
+            var messages = new List<string>();
+            var clients = new List<Client>();
 
             Func<Mochi.Context, Task> RenderFileHandler(string path)
             {
@@ -53,8 +64,10 @@ namespace Mochi.Sample.Chat
                     return;
                 }
 
+                await fiber;
+                messages.Add($"{name},{text}");
+                signaler.Signal();
 
-                await postChannel.SendAsync($"{name},{text}", ctx.CancellationToken);
                 await ctx.Response.WriteAsync("OK", ctx.CancellationToken);
             });
 
@@ -63,49 +76,59 @@ namespace Mochi.Sample.Chat
                 ctx.Response.SetHeader("Access-Control-Allow-Origin", "*");
                 ctx.Response.SetContentType("text/event-stream; charset=utf-8");
 
-                var receiveChannel = new Mochi.Async.Channel<string>(10);
+                var client = new Client(new Queue<string>(), new Mochi.Async.Signaler());
+
+                await fiber;
+                clients.Add(client);
+
                 try
                 {
-                    await clientConnectChannel.SendAsync(receiveChannel, ctx.CancellationToken);
-
-
                     while (true)
                     {
-                        var (text, _) = await receiveChannel.ReceiveAsync(ctx.CancellationToken);
-                        await ctx.Response.WriteAsync($"data: {text}\r\n\r\n", ctx.CancellationToken);
-                        await ctx.Response.FlushAsync(ctx.CancellationToken);
+                        await client.Signaler.WaitSignalAsync(ctx.CancellationToken);
+
+                        while (true)
+                        {
+                            await fiber;
+                            if (client.Queue.Count == 0) break;
+                            var text = client.Queue.Dequeue();
+                            await ctx.Response.WriteAsync($"data: {text}\r\n\r\n", ctx.CancellationToken);
+                            await ctx.Response.FlushAsync(ctx.CancellationToken);
+                        }
                     }
                 }
                 finally
                 {
-                    await clientDisconnectChannel.SendAsync(receiveChannel, CancellationToken.None);
-                    receiveChannel.Dispose();
+                    await fiber;
+                    clients.Remove(client);
                 }
             });
 
 
             _ = Task.Run(async () =>
             {
-                var clients = new List<Mochi.Async.Channel<string>>();
                 while (true)
                 {
-                    var result = await Mochi.Async.Channel.SelectAsync(postChannel, clientConnectChannel, clientDisconnectChannel, false, CancellationToken.None);
-                    switch (result.Index)
+                    await signaler.WaitSignalAsync(default(CancellationToken));
+
+                    while (true)
                     {
-                        case 0:
-                            Console.WriteLine("Posted.");  
-                            foreach (var client in clients) await client.SendAsync(result.Item1.Result, CancellationToken.None);
-                            break;
-                        case 1:
-                            Console.WriteLine("Connected.");  
-                            clients.Add(result.Item2.Result);
-                            break;
-                        case 2:
-                            Console.WriteLine("Disconnected.");  
-                            clients.Remove(result.Item3.Result);
-                            break;
-                        default:
-                            throw new Exception("unknown bug.");
+                        await fiber;
+                        if (messages.Count == 0) break;
+
+                        foreach (var message in messages)
+                        {
+                            foreach (var client in clients)
+                            {
+                                client.Queue.Enqueue(message);
+                            }
+                        }
+
+                        foreach (var client in clients)
+                        {
+                            client.Signaler.Signal();
+                        }
+                        messages.Clear();
                     }
                 }
             });
