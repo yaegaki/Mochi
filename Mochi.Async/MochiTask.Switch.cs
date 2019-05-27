@@ -5,6 +5,36 @@ namespace Mochi.Async
 {
     public partial struct MochiTask
     {
+        public static MochiTask<T> Switch<T>(
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case1Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case2Func,
+            CancellationTokenSource cancellationTokenSource = default)
+            => Switch(default(MochiUnit), case1Func, case2Func, cancellationTokenSource);
+
+        public static MochiTask<T> Switch<T>(
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case1Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case2Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case3Func,
+            CancellationTokenSource cancellationTokenSource = default)
+            => Switch(default(MochiUnit), case1Func, case2Func, case3Func, cancellationTokenSource);
+
+        public static MochiTask<T> Switch<T>(
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case1Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case2Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case3Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case4Func,
+            CancellationTokenSource cancellationTokenSource = default)
+            => Switch(default(MochiUnit), case1Func, case2Func, case3Func, case4Func, cancellationTokenSource);
+
+        public static MochiTask<T> Switch<T>(
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case1Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case2Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case3Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case4Func,
+            Func<SwitchContext<MochiUnit>, SwitchCase<T>> case5Func,
+            CancellationTokenSource cancellationTokenSource = default)
+            => Switch(default(MochiUnit), case1Func, case2Func, case3Func, case4Func, case5Func, cancellationTokenSource);
+
         public static MochiTask<T> Switch<TCapture, T>(TCapture capture,
             Func<SwitchContext<TCapture>, SwitchCase<T>> case1Func,
             Func<SwitchContext<TCapture>, SwitchCase<T>> case2Func,
