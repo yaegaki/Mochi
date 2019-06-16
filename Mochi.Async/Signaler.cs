@@ -12,12 +12,21 @@ namespace Mochi.Async
         {
             lock (this.sync)
             {
-                foreach (var promise in this.promises)
+                var currentLength = this.promises.Count;
+                for (var i = 0; i < currentLength; i++)
                 {
-                    promise.TrySetResult();
+                    this.promises[i].TrySetResult();
                 }
 
-                this.promises.Clear();
+                // WaitSignalAsync was called while TrySetResult.
+                if (this.promises.Count > currentLength)
+                {
+                    this.promises.RemoveRange(0, currentLength);
+                }
+                else
+                {
+                    this.promises.Clear();
+                }
             }
         }
 
