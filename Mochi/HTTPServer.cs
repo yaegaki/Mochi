@@ -13,16 +13,13 @@ namespace Mochi
         public event Action<Exception> OnClientException;
         private Router router = new Router();
 
-        public Task StartServeAsync(IPEndPoint endpoint, CancellationToken cancellationToken)
-            => Task.Run(async () => await StartServeAsyncCore(endpoint, cancellationToken));
-
         public void Get(string path, Func<Context, Task> handleFunc)
             => this.router.Register(HTTPMethod.Get, path, handleFunc);
         
         public void Post(string path, Func<Context, Task> handleFunc)
             => this.router.Register(HTTPMethod.Post, path, handleFunc);
 
-        private async Task StartServeAsyncCore(IPEndPoint endpoint, CancellationToken cancellationToken)
+        public async Task StartServeAsync(IPEndPoint endpoint, CancellationToken cancellationToken)
         {
             using (var serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             using (cancellationToken.Register(() => serverSocket.Close()))
@@ -30,28 +27,63 @@ namespace Mochi
                 serverSocket.Bind(endpoint);
                 serverSocket.Listen(10);
 
-                while (true)
+                await Task.Run(async () =>
                 {
-                    var clientSocket = await Task.Run(async () => await serverSocket.AcceptAsync(), cancellationToken);
-                    _ = Task.Run(async () =>
+                    while (true)
                     {
-                        var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                        var linkedCancellationToken = linkedTokenSource.Token;
-
-                        // check connection.
+                        var clientSocket = await Task.Run(async () => await serverSocket.AcceptAsync(), cancellationToken);
                         _ = Task.Run(async () =>
                         {
-                            while (true)
+                            var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                            var linkedCancellationToken = linkedTokenSource.Token;
+
+                            // check connection.
+                            _ = Task.Run(async () =>
                             {
-                                await Task.Delay(5000, linkedCancellationToken);
-                                if (clientSocket.Connected)
+                                while (true)
                                 {
-                                    if (!clientSocket.Poll(1, SelectMode.SelectRead) || clientSocket.Available != 0)
+                                    await Task.Delay(5000, linkedCancellationToken);
+                                    if (clientSocket.Connected)
                                     {
-                                        continue;
+                                        if (!clientSocket.Poll(1, SelectMode.SelectRead) || clientSocket.Available != 0)
+                                        {
+                                            continue;
+                                        }
+                                    }
+
+                                    var _linkedTokenSource = linkedTokenSource;
+                                    if (_linkedTokenSource != null)
+                                    {
+                                        if (Interlocked.CompareExchange(ref linkedTokenSource, null, _linkedTokenSource) == _linkedTokenSource)
+                                        {
+                                            _linkedTokenSource.Cancel();
+                                            _linkedTokenSource.Dispose();
+                                        }
+                                    }
+                                    break;
+                                }
+                            });
+
+                            try
+                            {
+                                using (var ns = new NetworkStream(clientSocket, true))
+                                {
+                                    try
+                                    {
+                                        await ServeAsync(clientSocket, ns, linkedCancellationToken);
+                                    }
+                                    catch (InvalidReceiveDataException)
+                                    {
+                                        // ignore
+                                    }
+                                    catch (BufferFullException)
+                                    {
+                                        // ignore
                                     }
                                 }
-
+                            }
+                            catch
+                            {
                                 var _linkedTokenSource = linkedTokenSource;
                                 if (_linkedTokenSource != null)
                                 {
@@ -61,43 +93,11 @@ namespace Mochi
                                         _linkedTokenSource.Dispose();
                                     }
                                 }
-                                break;
                             }
-                        });
-
-                        try
-                        {
-                            using (var ns = new NetworkStream(clientSocket, true))
-                            {
-                                try
-                                {
-                                    await ServeAsync(clientSocket, ns, linkedCancellationToken);
-                                }
-                                catch (InvalidReceiveDataException)
-                                {
-                                    // ignore
-                                }
-                                catch (BufferFullException)
-                                {
-                                    // ignore
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            var _linkedTokenSource = linkedTokenSource;
-                            if (_linkedTokenSource != null)
-                            {
-                                if (Interlocked.CompareExchange(ref linkedTokenSource, null, _linkedTokenSource) == _linkedTokenSource)
-                                {
-                                    _linkedTokenSource.Cancel();
-                                    _linkedTokenSource.Dispose();
-                                }
-                            }
-                        }
-                    })
-                    .ContinueWith(t => this.OnClientException?.Invoke(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
-                }
+                        })
+                        .ContinueWith(t => this.OnClientException?.Invoke(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
+                    }
+                });
             }
         }
 
