@@ -6,6 +6,11 @@ namespace Mochi
     public interface IResponseWriter
     {
         void SetHeader(string name, string value);
+        /// <summary>
+        /// Hijack connection.
+        /// </summary>
+        /// <returns></returns>
+        HijackResult Hijack();
         Task WriteStatusCodeAsync(int statusCode, CancellationToken cancellationToken);
         Task WriteAsync(byte[] data, CancellationToken cancellationToken);
         Task WriteAsync(byte[] data, int offset, int count, CancellationToken cancellationToken);

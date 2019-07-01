@@ -1,13 +1,12 @@
 using System;
 using System.IO;
-using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mochi
 {
-    class NetworkStreamReader
+    public class NetworkStreamReader : IAsyncStreamReader
     {
         private Stream stream;
         private byte[] buffer;
@@ -35,7 +34,7 @@ namespace Mochi
             }
         }
 
-        public async Task<int> ReadAsync(byte[] buffer, int offset)
+        public async Task<int> ReadAsync(byte[] buffer, int offset, CancellationToken cancellationToken)
         {
             if (this.remain > 0)
             {
@@ -55,10 +54,10 @@ namespace Mochi
                 return copyByte;
             }
 
-            return await this.stream.ReadAsync(buffer, offset, buffer.Length - offset);
+            return await this.stream.ReadAsync(buffer, offset, buffer.Length - offset, cancellationToken);
         }
 
-        public async Task ReadBlockAsync(byte[] buffer, int offset, int count)
+        public async Task ReadBlockAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             if (this.remain > 0)
             {
@@ -81,7 +80,7 @@ namespace Mochi
 
             while (count > 0)
             {
-                var read = await this.stream.ReadAsync(buffer, offset, count);
+                var read = await this.stream.ReadAsync(buffer, offset, count, cancellationToken);
                 if (read == 0) throw new InvalidReceiveDataException("Unexpected EOF");
 
                 offset += read;

@@ -3,12 +3,12 @@ using System.Threading;
 
 namespace Mochi
 {
-    public struct Context
+    public readonly struct Context
     {
-        public Socket Socket { get; }
-        public Request Reqeust { get; }
-        public IResponseWriter Response { get; }
-        public CancellationToken CancellationToken { get; }
+        public readonly Socket Socket;
+        public readonly Request Reqeust;
+        public readonly IResponseWriter Response;
+        public readonly CancellationToken CancellationToken;
 
         public Context(Socket socket, Request request, ResponseWriter response, CancellationToken cancellationToken)
         {

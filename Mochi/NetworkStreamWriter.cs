@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Mochi
 {
-    public class NetworkStreamWriter
+    public class NetworkStreamWriter : IAsyncStreamWriter
     {
         private Stream stream;
         private byte[] buffer;

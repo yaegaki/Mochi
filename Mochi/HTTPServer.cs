@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Mochi.Internal;
 
 namespace Mochi
 {
@@ -18,6 +18,9 @@ namespace Mochi
         
         public void Post(string path, Func<Context, Task> handleFunc)
             => this.router.Register(HTTPMethod.Post, path, handleFunc);
+        
+        public void WebSocket(string path, Func<WebSocketContext, Task> handleFunc)
+            => WebSocketUpgrader.Handle(this, path, handleFunc);
 
         public async Task StartServeAsync(IPEndPoint endpoint, CancellationToken cancellationToken)
         {
@@ -158,7 +161,7 @@ namespace Mochi
                 if (contentLength > 0)
                 {
                     var bodyBuffer = new byte[contentLength];
-                    await sr.ReadBlockAsync(bodyBuffer, 0, contentLength);
+                    await sr.ReadBlockAsync(bodyBuffer, 0, contentLength, cancellationToken);
                     body = bodyBuffer;
                 }
             }
@@ -167,7 +170,7 @@ namespace Mochi
             var context = new Context(
                 socket,
                 new Request(path, headers, body),
-                new ResponseWriter(new NetworkStreamWriter(ns, writeBuffer)),
+                new ResponseWriter(sr, new NetworkStreamWriter(ns, writeBuffer)),
                 cancellationToken
             );
 

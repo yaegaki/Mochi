@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
@@ -12,17 +13,33 @@ namespace Mochi
         private static readonly byte[] OKBytes = Encoding.UTF8.GetBytes("OK");
         private static readonly byte[] LineBrakeBytes = Encoding.UTF8.GetBytes("\r\n");
 
+        private NetworkStreamReader sr;
         private NetworkStreamWriter sw;
         private Dictionary<string, string> headers = new Dictionary<string, string>();
         private bool isHeaderWrote;
+        private bool isHijacked;
 
-        public ResponseWriter(NetworkStreamWriter sw)
+        public ResponseWriter(NetworkStreamReader sr, NetworkStreamWriter sw)
         {
+            this.sr = sr;
             this.sw = sw;
+        }
+
+        public HijackResult Hijack()
+        {
+            if (this.isHijacked)
+            {
+                return default;
+            }
+
+            this.isHijacked = true;
+            return new HijackResult(this.sr, this.sw);
         }
 
         public void SetHeader(string name, string value)
         {
+            CheckHijacked();
+
             if (this.isHeaderWrote)
             {
                 throw new System.Exception("TODO");
@@ -33,6 +50,8 @@ namespace Mochi
 
         public async Task WriteStatusCodeAsync(int statusCode, CancellationToken cancellationToken)
         {
+            CheckHijacked();
+
             if (this.isHeaderWrote)
             {
                 throw new System.Exception("TODO");
@@ -71,6 +90,8 @@ namespace Mochi
 
         public async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
+            CheckHijacked();
+
             if (!this.isHeaderWrote)
             {
                 await WriteStatusCodeAsync(200, cancellationToken);
@@ -81,6 +102,8 @@ namespace Mochi
 
         public async Task WriteAsync(string s, CancellationToken cancellationToken)
         {
+            CheckHijacked();
+
             if (!this.isHeaderWrote)
             {
                 await WriteStatusCodeAsync(200, cancellationToken);
@@ -90,16 +113,33 @@ namespace Mochi
         }
 
         public Task FlushAsync(CancellationToken cancellationToken)
-            => this.sw.FlushAsync(cancellationToken);
+        {
+            CheckHijacked();
+
+            return this.sw.FlushAsync(cancellationToken);
+        }
 
         public async Task FinishAsync(CancellationToken cancellationToken)
         {
+            if (this.isHijacked)
+            {
+                return;
+            }
+
             if (!this.isHeaderWrote)
             {
                 await WriteStatusCodeAsync(200, cancellationToken);
             }
 
             await FlushAsync(cancellationToken);
+        }
+
+        private void CheckHijacked()
+        {
+            if (this.isHijacked)
+            {
+                throw new InvalidOperationException("ResponseWriter is already hijacked");
+            }
         }
     }
 }
