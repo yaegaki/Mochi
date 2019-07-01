@@ -140,6 +140,9 @@ namespace Mochi
             return WriteAsync(WebSocketOpCode.Text, bin, 0, bin.Length, cancellationToken);
         }
 
+        public Task WriteAsync(byte[] data, CancellationToken cancellationToken)
+            => WriteAsync(WebSocketOpCode.Binary, data, 0, data.Length, cancellationToken);
+
         public Task WriteAsync(byte[] data, int offset, int count, CancellationToken cancellationToken)
             => WriteAsync(WebSocketOpCode.Binary, data, offset, count, cancellationToken);
 
