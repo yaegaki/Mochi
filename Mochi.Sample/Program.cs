@@ -13,10 +13,17 @@ namespace Mochi.Sample
     </body>
 </html>";
 
+        private static readonly string FallbackTemplate = @"<html>
+    <body>
+        <h1>Welcome to MochiServer(FallbackPage)!</h1>
+    </body>
+</html>";
+
 
         static async Task Main(string[] args)
         {
             var mochi = new Mochi.HTTPServer();
+
             mochi.Get("/", async ctx =>
             {
                 await ctx.Response.WriteAsync(Template, ctx.CancellationToken);
@@ -51,6 +58,11 @@ namespace Mochi.Sample
                 {
                     await ctx.Response.WriteAsync($"{name}: {string.Join(',', values)}\n", ctx.CancellationToken);
                 }
+            });
+
+            mochi.Get("/*", async ctx =>
+            {
+                await ctx.Response.WriteAsync(FallbackTemplate, ctx.CancellationToken);
             });
 
             await mochi.StartServeAsync(new IPEndPoint(IPAddress.Loopback, 8080), CancellationToken.None);
