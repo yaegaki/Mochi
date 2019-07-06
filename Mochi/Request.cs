@@ -22,6 +22,7 @@ namespace Mochi
             }
         }
         public string Path { get; }
+        public string Host { get; }
         public Dictionary<string, string> Headers { get; }
         public byte[] Body { get; }
         public Request(
@@ -35,6 +36,7 @@ namespace Mochi
             this.Path = path;
             this.Headers = headers;
             this.Body = body;
+            this.Host = headers["Host"];
         }
 
         private Form ParseForm()
