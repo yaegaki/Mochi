@@ -1,5 +1,5 @@
 # Mochi
-C# HTTPServer
+Simple C# HTTPServer for .NET Standard 2.0
 
 ## Requirements
 
@@ -31,6 +31,12 @@ mochi.Get("/", async ctx =>
 {
     // write response
     await ctx.Response.WriteAsync("Hello", ctx.CancellationToken);
+});
+
+// can use wildcard in the path
+mochi.Get("/hoge/*", async ctx =>
+{
+    await ctx.Response.WriteAsync("Hoge", ctx.CancellationToken);
 });
 
 // start listen and serve on 127.0.0.1 port 8080
