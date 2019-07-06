@@ -10,7 +10,7 @@ namespace Mochi
 {
     public class HTTPServer
     {
-        public event Action<Exception> OnClientException;
+        public event Action<Exception> OnClientUnhandledException;
         private Router router = new Router();
 
         public void Get(string path, Func<Context, Task> handleFunc)
@@ -100,7 +100,7 @@ namespace Mochi
                                 throw;
                             }
                         })
-                        .ContinueWith(t => this.OnClientException?.Invoke(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
+                        .ContinueWith(t => this.OnClientUnhandledException?.Invoke(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
                     }
                 });
             }
