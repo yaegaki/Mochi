@@ -96,6 +96,8 @@ namespace Mochi
                                         _linkedTokenSource.Dispose();
                                     }
                                 }
+
+                                throw;
                             }
                         })
                         .ContinueWith(t => this.OnClientException?.Invoke(t.Exception), TaskContinuationOptions.OnlyOnFaulted);
